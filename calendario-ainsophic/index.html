@@ -85,7 +85,7 @@
     @media(max-width:1100px){.year-grid{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:700px){.year-grid{grid-template-columns:1fr}}
 
-    /* Vista Día y Agenda: reutilizan .event */
+    /* Vista Día y Agenda */
     .day-events{display:flex;flex-direction:column;gap:10px;max-width:720px}
     .event{
       display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:start;
@@ -125,27 +125,7 @@
 
     footer{padding:18px 22px 28px;border-top:1px solid var(--line);color:var(--muted)}
 
-    /* Panel lateral de detalle */
-    .panel{position:fixed;inset:0;background:rgba(0,0,0,.38);display:none;justify-content:flex-end;z-index:10}
-    .panel.open{display:flex}
-    .drawer{width:min(620px,100%);height:100%;overflow:auto;background:#fff;border-left:1px solid var(--line);padding:22px}
-    .drawer-top{display:flex;justify-content:space-between;gap:8px}
-    .drawer-top .left{display:flex;gap:8px}
-    .close{border:1px solid var(--line);background:#fff;padding:7px 10px}
-    .detail-kicker{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-    #detail h2{font-size:26px;line-height:1.1;margin:8px 0 2px}
-    .detail-date{color:var(--muted);margin-top:0}
-    .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}
-    .detail-grid>div{border:1px solid var(--line);padding:10px}
-    .label{display:block;color:var(--muted);font-size:12px;margin-bottom:2px}
-    .detail-section{border-top:1px solid var(--line);padding:14px 0}
-    .detail-section h3{margin:0 0 6px;font-size:14px}
-    .detail-section p{margin:0;white-space:pre-wrap}
-    .detail-section ul{margin:8px 0 0;padding-left:20px}
-    .detail-section li{margin:4px 0}
-    .inline-check{display:flex;align-items:center;gap:8px}
-
-    /* Modal de alta/edición */
+    /* Modal de alta / edición (también hace de vista de detalle: clic en un evento = editarlo) */
     .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.38);display:none;align-items:center;justify-content:center;z-index:20;padding:18px}
     .modal-overlay.open{display:flex}
     .modal-box{background:#fff;border:1px solid var(--line);width:min(760px,100%);max-height:92vh;overflow:auto;padding:22px}
@@ -158,14 +138,15 @@
       width:100%;padding:8px 10px;border:1px solid var(--line);background:#fff;color:#111
     }
     .form-field textarea{min-height:64px;resize:vertical}
-    .form-actions{display:flex;justify-content:space-between;gap:8px;margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+    .inline-check{display:flex;align-items:center;gap:8px}
+    .form-actions{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
     .form-actions .right{display:flex;gap:8px}
+    #form-delete[hidden]{display:none}
     @media(max-width:700px){.form-grid{grid-template-columns:1fr}}
 
     @media(max-width:700px){
       header,main,footer{padding-left:12px;padding-right:12px}
       .toolbar input{min-width:100%}
-      .detail-grid{grid-template-columns:1fr}
       h1{font-size:23px}
     }
   </style>
@@ -176,7 +157,7 @@
     <h1>Calendario estratégico — Mendoza → Argentina → Global</h1>
     <p class="subtitle">
       Sistema operativo para decidir cuándo ejecutar, aliarse, observar o bloquear una fecha.
-      Cada evento incluye score, contexto y acciones recomendadas. Editable desde el navegador.
+      Hacé clic en cualquier evento para editarlo directamente.
     </p>
 
     <div class="toolbar">
@@ -257,19 +238,6 @@
     Research Labs puede aportar contenido científico, pero no organiza eventos.
     Los cambios se guardan en este navegador — usá "Exportar copia" para respaldarlos.
   </footer>
-
-  <div id="panel" class="panel" aria-hidden="true">
-    <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="detail-title">
-      <div class="drawer-top">
-        <div class="left">
-          <button id="edit-event" class="close">Editar</button>
-          <button id="delete-event" class="close">Eliminar</button>
-        </div>
-        <button id="close-panel" class="close">Cerrar</button>
-      </div>
-      <div id="detail"></div>
-    </aside>
-  </div>
 
   <div id="modal" class="modal-overlay" aria-hidden="true">
     <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -355,8 +323,9 @@
         </div>
 
         <div class="form-actions">
-          <button type="button" id="form-cancel" class="btn">Cancelar</button>
+          <button type="button" id="form-delete" class="btn btn-danger" hidden>Eliminar evento</button>
           <div class="right">
+            <button type="button" id="form-cancel" class="btn">Cancelar</button>
             <button type="submit" class="btn btn-primary">Guardar evento</button>
           </div>
         </div>

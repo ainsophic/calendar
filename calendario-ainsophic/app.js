@@ -6,6 +6,10 @@
   sitio estático (ej. nginx). Los datos viven en localStorage del
   navegador; "events.json" es solo la semilla inicial / el respaldo
   de fábrica. Usá "Exportar copia" para sacar un dump periódico.
+
+  Interacción tipo Google Calendar: hacer clic en un evento (en la
+  grilla del mes, en el día o en la agenda) lo abre directamente en
+  modo edición — no hay una vista de "solo lectura" intermedia.
 */
 
 // ---------- Constantes ----------
@@ -39,7 +43,6 @@ const state = {
   entity: "all",
   type: "all",
   filter: "all",           // all | must | pending | done
-  selectedId: null,
   editingId: null          // null = alta nueva, id = edición
 };
 
@@ -159,6 +162,20 @@ async function loadData() {
       "serví la carpeta con un servidor (nginx, o \"python3 -m http.server\" para probar en local) y volvé a intentar."
     );
   }
+}
+
+// Punto de partida "inteligente": si hoy no cae dentro del rango de
+// fechas cargadas (típico cuando se está planificando el año próximo),
+// arrancar en "hoy" mostraría un calendario vacío y parecería que los
+// eventos no están. En vez de eso, la primera vista apunta al evento
+// más próximo (o al más reciente si ya pasaron todos).
+function computeInitialCursor() {
+  if (!data.length) return new Date();
+  const dates = data.map(e => e.date).filter(Boolean).sort();
+  if (!dates.length) return new Date();
+  const today = todayISO();
+  const upcoming = dates.find(d => d >= today);
+  return parseISO(upcoming || dates[dates.length - 1]);
 }
 
 function showDataError(msg) {
@@ -401,12 +418,12 @@ function renderMonth() {
     html += `
       <div class="day-cell ${inMonth ? "" : "other-month"} ${iso === today ? "today" : ""}" data-iso="${iso}">
         <div class="day-cell-head">
-          <button type="button" class="day-num" data-goto-day="${iso}">${cellDate.getDate()}</button>
+          <button type="button" class="day-num" data-goto-day="${iso}" title="Ver el día">${cellDate.getDate()}</button>
           <button type="button" class="day-add" data-add-on="${iso}" title="Agregar evento">+</button>
         </div>
         <div class="day-chips">
           ${visibleChips.map(ev => `
-            <button type="button" class="event-chip ${actionClass(ev.action)}" data-open="${ev.id}">${escapeHtml(ev.title)}</button>
+            <button type="button" class="event-chip ${actionClass(ev.action)}" data-edit="${ev.id}" title="Editar">${escapeHtml(ev.title)}</button>
           `).join("")}
           ${extra > 0 ? `<button type="button" class="day-more" data-goto-day="${iso}">+${extra} más</button>` : ""}
         </div>
@@ -416,10 +433,10 @@ function renderMonth() {
 
   grid.innerHTML = html;
 
-  $$("[data-open]", grid).forEach(btn => btn.addEventListener("click", ev => {
+  $$("[data-edit]", grid).forEach(btn => btn.addEventListener("click", ev => {
     ev.stopPropagation();
-    const found = data.find(e => e.id === btn.dataset.open);
-    if (found) openDetail(found);
+    const found = data.find(e => e.id === btn.dataset.edit);
+    if (found) openForm(found);
   }));
   $$("[data-add-on]", grid).forEach(btn => btn.addEventListener("click", ev => {
     ev.stopPropagation();
@@ -557,7 +574,7 @@ function eventCardHtml(event) {
           <span class="date">${fmtDate(event.date)}</span>
           <span class="score ${scoreClass(event.score)}">${event.score ?? "—"}/100</span>
         </div>
-        <button class="event-title" type="button" data-open="${event.id}">${escapeHtml(event.title)}</button>
+        <button class="event-title" type="button" data-edit="${event.id}" title="Editar">${escapeHtml(event.title)}</button>
         <div class="event-meta">${escapeHtml(event.city || "")} · ${escapeHtml(event.entity || "")} · ${escapeHtml(event.product || "")}</div>
         <div class="chips">
           <span class="chip">${escapeHtml(event.priority || "")}</span>
@@ -565,7 +582,7 @@ function eventCardHtml(event) {
           <span class="chip">${escapeHtml(event.type || "")}</span>
         </div>
       </div>
-      <button class="open-event" type="button" data-open="${event.id}" aria-label="Ver detalles">→</button>
+      <button class="open-event" type="button" data-edit="${event.id}" aria-label="Editar evento">✎</button>
     </article>
   `;
 }
@@ -577,71 +594,21 @@ function wireEventCards(root) {
       updateEvent(cb.dataset.check, { done: ev.target.checked });
     });
   });
-  $$("[data-open]", root).forEach(btn => btn.addEventListener("click", () => {
-    const found = data.find(e => e.id === btn.dataset.open);
-    if (found) openDetail(found);
+  $$("[data-edit]", root).forEach(btn => btn.addEventListener("click", () => {
+    const found = data.find(e => e.id === btn.dataset.edit);
+    if (found) openForm(found);
   }));
 }
 
-// ---------- Panel de detalle ----------
-
-function openDetail(event) {
-  state.selectedId = event.id;
-
-  $("#detail").innerHTML = `
-    <div class="detail-kicker">${escapeHtml(event.action || "")} · ${escapeHtml(event.priority || "")} · ${event.score ?? "—"}/100</div>
-    <h2>${escapeHtml(event.title)}</h2>
-    <p class="detail-date">${fmtDate(event.date)} · ${escapeHtml(event.city || "")}</p>
-
-    <div class="detail-grid">
-      <div><span class="label">Entidad</span><strong>${escapeHtml(event.entity || "—")}</strong></div>
-      <div><span class="label">Producto / tema</span><strong>${escapeHtml(event.product || "—")}</strong></div>
-    </div>
-
-    ${event.summary ? `<section class="detail-section"><h3>Qué es</h3><p>${escapeHtml(event.summary)}</p></section>` : ""}
-    ${event.strategy ? `<section class="detail-section"><h3>Por qué importa</h3><p>${escapeHtml(event.strategy)}</p></section>` : ""}
-    ${event.tasks && event.tasks.length ? `
-      <section class="detail-section">
-        <h3>Qué debemos hacer</h3>
-        <ul>${event.tasks.map(t => `<li>${escapeHtml(t)}</li>`).join("")}</ul>
-      </section>` : ""}
-
-    <section class="detail-section">
-      <h3>Estado</h3>
-      <label class="inline-check">
-        <input id="detail-check" type="checkbox" ${event.done ? "checked" : ""}>
-        Marcar como gestionado
-      </label>
-    </section>
-
-    ${event.source ? `
-      <section class="detail-section">
-        <h3>Fuente</h3>
-        <a href="${escapeHtml(event.source)}" target="_blank" rel="noopener noreferrer">Abrir fuente</a>
-      </section>` : ""}
-  `;
-
-  $("#detail-check").addEventListener("change", ev => {
-    updateEvent(event.id, { done: ev.target.checked });
-  });
-
-  $("#panel").classList.add("open");
-  document.body.classList.add("locked");
-}
-
-function closePanel() {
-  $("#panel").classList.remove("open");
-  document.body.classList.remove("locked");
-  state.selectedId = null;
-}
-
-// ---------- Modal alta / edición ----------
+// ---------- Modal alta / edición (clic en un evento = esto) ----------
 
 function openForm(eventOrNull, prefillDate) {
   state.editingId = eventOrNull ? eventOrNull.id : null;
   const ev = eventOrNull || {};
 
   $("#modal-title").textContent = eventOrNull ? "Editar evento" : "Nuevo evento";
+  $("#form-delete").hidden = !eventOrNull;
+
   $("#f-title").value = ev.title || "";
   $("#f-date").value = ev.date || prefillDate || todayISO();
   $("#f-priority").value = ev.priority || "";
@@ -698,9 +665,18 @@ function handleFormSubmit(ev) {
   }
 
   closeForm();
-  // Llevar la vista al evento recién guardado
+  // Llevar la vista a la fecha del evento recién guardado, así se ve al toque
   state.cursor = parseISO(payload.date);
   render();
+}
+
+function handleFormDelete() {
+  if (!state.editingId) return;
+  const found = data.find(e => e.id === state.editingId);
+  const label = found ? found.title : "este evento";
+  if (!confirm(`¿Eliminar "${label}"? Esta acción no se puede deshacer.`)) return;
+  deleteEvent(state.editingId);
+  closeForm();
 }
 
 // ---------- Navegación entre vistas ----------
@@ -767,39 +743,16 @@ function setupFilters() {
   });
 }
 
-// ---------- Panel de detalle / modal: wiring ----------
-
-function setupPanel() {
-  $("#close-panel").addEventListener("click", closePanel);
-  $("#panel").addEventListener("click", ev => { if (ev.target.id === "panel") closePanel(); });
-
-  $("#edit-event").addEventListener("click", () => {
-    const found = data.find(e => e.id === state.selectedId);
-    if (!found) return;
-    closePanel();
-    openForm(found);
-  });
-
-  $("#delete-event").addEventListener("click", () => {
-    const found = data.find(e => e.id === state.selectedId);
-    if (!found) return;
-    if (confirm(`¿Eliminar "${found.title}"? Esta acción no se puede deshacer.`)) {
-      deleteEvent(found.id);
-      closePanel();
-    }
-  });
-
-  document.addEventListener("keydown", ev => {
-    if (ev.key !== "Escape") return;
-    if ($("#modal").classList.contains("open")) closeForm();
-    else if ($("#panel").classList.contains("open")) closePanel();
-  });
-}
+// ---------- Modal: wiring ----------
 
 function setupModal() {
   $("#event-form").addEventListener("submit", handleFormSubmit);
   $("#form-cancel").addEventListener("click", closeForm);
+  $("#form-delete").addEventListener("click", handleFormDelete);
   $("#modal").addEventListener("click", ev => { if (ev.target.id === "modal") closeForm(); });
+  document.addEventListener("keydown", ev => {
+    if (ev.key === "Escape" && $("#modal").classList.contains("open")) closeForm();
+  });
 }
 
 function setupDataActions() {
@@ -821,12 +774,12 @@ async function init() {
   setupViewTabs();
   setupNav();
   setupFilters();
-  setupPanel();
   setupModal();
   setupDataActions();
 
   await loadData();
   if (dataReady) {
+    state.cursor = computeInitialCursor();
     populateFilterOptions();
     render();
   }
