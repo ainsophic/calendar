@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Ainsophic Event Intelligence — calendario estratégico interno Mendoza, Argentina y global.">
+  <title>Ainsophic — Event Intelligence</title>
+  <style>
+    :root{
+      --bg:#fff;--fg:#111;--muted:#666;--line:#dedede;--soft:#f5f5f5;
+      --good:#087f5b;--warn:#ad6800;--bad:#b42318;--purple:#5b3cc4
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    body.locked{overflow:hidden}
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer}
+    a{color:inherit}
+    header,main,footer{width:min(1500px,100%);margin:auto}
+    header{padding:24px 22px 18px;border-bottom:1px solid var(--line)}
+    .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+    h1{font-size:28px;line-height:1.1;margin:5px 0}
+    .subtitle{max-width:880px;color:var(--muted)}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+    .toolbar input,.toolbar select,.toolbar button{
+      min-height:38px;padding:8px 11px;border:1px solid var(--line);background:#fff;color:#111
+    }
+    .toolbar input{min-width:240px}
+    .toolbar button.active{background:#111;color:#fff}
+    .toolbar-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .btn{border:1px solid var(--line);background:#fff;padding:8px 13px;color:#111}
+    .btn-primary{background:#111;color:#fff;border-color:#111}
+    .btn-danger{background:#fff1f0;color:var(--bad);border-color:#f3c8c2}
+    .stats{margin-top:10px;color:var(--muted)}
+    .legend{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+    .legend span{padding:4px 7px;border:1px solid var(--line);font-size:12px}
+    main{padding:18px 22px 28px}
+
+    #data-error{display:none;margin:0 0 16px;padding:11px 13px;border:1px solid var(--bad);background:#fff1f0;color:var(--bad)}
+    #data-error.show{display:block}
+    #data-status{color:var(--muted);font-size:12px;margin:8px 0 0}
+
+    .view-tabs{display:flex;gap:6px;margin-top:20px}
+    .view-tabs button{padding:7px 15px;border:1px solid var(--line);background:#fff}
+    .view-tabs button.active{background:#111;color:#fff}
+
+    .cal-nav{display:flex;align-items:center;gap:10px;margin:16px 0 14px}
+    .cal-nav button{border:1px solid var(--line);background:#fff;padding:6px 12px}
+    .cal-nav h2{margin:0;font-size:19px;flex:1;text-transform:capitalize}
+
+    .view-panel{display:none}
+    .view-panel.active{display:block}
+
+    /* Vista Mes */
+    .month-grid{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--line);border-left:0}
+    .weekday-head{padding:6px 8px;font-size:11px;text-transform:uppercase;color:var(--muted);border-left:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--soft)}
+    .day-cell{min-height:108px;border-left:1px solid var(--line);border-bottom:1px solid var(--line);padding:5px;display:flex;flex-direction:column;gap:3px}
+    .day-cell.other-month{background:#fafafa}
+    .day-cell.other-month .day-num{color:#bbb}
+    .day-cell.today{background:#fff7e8}
+    .day-cell-head{display:flex;justify-content:space-between;align-items:center}
+    .day-num{border:0;background:none;padding:2px 5px;font-size:13px;font-weight:700;color:#111}
+    .day-cell.today .day-num{text-decoration:underline}
+    .day-add{border:0;background:none;color:var(--muted);font-size:15px;line-height:1;padding:1px 5px;visibility:hidden}
+    .day-cell:hover .day-add{visibility:visible}
+    .day-chips{display:flex;flex-direction:column;gap:2px;overflow:hidden}
+    .event-chip{font-size:11px;padding:2px 5px;border:1px solid var(--line);background:#fff;text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
+    .day-more{font-size:11px;color:var(--muted);background:none;border:0;padding:1px 2px;text-align:left}
+    @media(max-width:700px){
+      .day-cell{min-height:74px}
+      .event-chip{font-size:10px}
+    }
+
+    /* Vista Año */
+    .year-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+    .mini-month{border:1px solid var(--line)}
+    .mini-month-head{display:block;width:100%;text-align:left;padding:7px 9px;border:0;border-bottom:1px solid var(--line);background:var(--soft);font-size:13px;font-weight:700}
+    .mini-grid{display:grid;grid-template-columns:repeat(7,1fr);padding:6px;gap:1px}
+    .mini-wd{font-size:9px;color:var(--muted);text-align:center;padding-bottom:3px}
+    .mini-day{font-size:10px;text-align:center;padding:3px 0;border:0;background:none;color:#333}
+    .mini-day.blank{visibility:hidden}
+    .mini-day.has-events{background:#111;color:#fff;font-weight:700}
+    .mini-day.today{box-shadow:inset 0 0 0 1px var(--bad)}
+    @media(max-width:1100px){.year-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:700px){.year-grid{grid-template-columns:1fr}}
+
+    /* Vista Día y Agenda: reutilizan .event */
+    .day-events{display:flex;flex-direction:column;gap:10px;max-width:720px}
+    .event{
+      display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:start;
+      border:1px solid var(--line);padding:9px;background:#fff
+    }
+    .event.is-done{opacity:.48}
+    .check-wrap{padding-top:2px}
+    .check-wrap input,.inline-check input{width:16px;height:16px}
+    .event-top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+    .date{font-size:12px;color:var(--muted)}
+    .score{font-size:11px;font-weight:700;padding:2px 6px;border:1px solid var(--line)}
+    .score-high{background:#edf8f3;color:var(--good)}
+    .score-mid{background:#fff7e8;color:var(--warn)}
+    .score-low{background:#fff1f0;color:var(--bad)}
+    .event-title{display:block;padding:0;border:0;background:none;text-align:left;font-weight:700;margin:3px 0}
+    .event-title:hover{text-decoration:underline}
+    .event-meta{font-size:12px;color:var(--muted)}
+    .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+    .chip{font-size:11px;border:1px solid var(--line);padding:2px 6px}
+    .action-go{background:#edf8f3;color:var(--good)}
+    .action-partner{background:#f1f0ff;color:var(--purple)}
+    .action-watch{background:#f7f7f7;color:#555}
+    .action-blackout{background:#fff1f0;color:var(--bad)}
+    .action-conditional{background:#fff7e8;color:var(--warn)}
+    .open-event{border:0;background:transparent;color:#666;padding:2px 3px;font-size:17px}
+    .empty{color:var(--muted);padding:15px;border:1px dashed var(--line)}
+
+    /* Agenda (lista agrupada por mes) */
+    .months{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    .month{border:1px solid var(--line);min-width:0}
+    .month-head{display:flex;align-items:baseline;justify-content:space-between;padding:11px 12px;border-bottom:1px solid var(--line);background:var(--soft)}
+    .month-head h2{margin:0;font-size:16px;text-transform:capitalize}
+    .month-head span{font-size:12px;color:var(--muted)}
+    .month-events{padding:9px;display:flex;flex-direction:column;gap:8px}
+    @media(max-width:1100px){.months{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:700px){.months{grid-template-columns:1fr}}
+
+    footer{padding:18px 22px 28px;border-top:1px solid var(--line);color:var(--muted)}
+
+    /* Panel lateral de detalle */
+    .panel{position:fixed;inset:0;background:rgba(0,0,0,.38);display:none;justify-content:flex-end;z-index:10}
+    .panel.open{display:flex}
+    .drawer{width:min(620px,100%);height:100%;overflow:auto;background:#fff;border-left:1px solid var(--line);padding:22px}
+    .drawer-top{display:flex;justify-content:space-between;gap:8px}
+    .drawer-top .left{display:flex;gap:8px}
+    .close{border:1px solid var(--line);background:#fff;padding:7px 10px}
+    .detail-kicker{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+    #detail h2{font-size:26px;line-height:1.1;margin:8px 0 2px}
+    .detail-date{color:var(--muted);margin-top:0}
+    .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}
+    .detail-grid>div{border:1px solid var(--line);padding:10px}
+    .label{display:block;color:var(--muted);font-size:12px;margin-bottom:2px}
+    .detail-section{border-top:1px solid var(--line);padding:14px 0}
+    .detail-section h3{margin:0 0 6px;font-size:14px}
+    .detail-section p{margin:0;white-space:pre-wrap}
+    .detail-section ul{margin:8px 0 0;padding-left:20px}
+    .detail-section li{margin:4px 0}
+    .inline-check{display:flex;align-items:center;gap:8px}
+
+    /* Modal de alta/edición */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.38);display:none;align-items:center;justify-content:center;z-index:20;padding:18px}
+    .modal-overlay.open{display:flex}
+    .modal-box{background:#fff;border:1px solid var(--line);width:min(760px,100%);max-height:92vh;overflow:auto;padding:22px}
+    .modal-box h2{margin:0 0 4px;font-size:22px}
+    .modal-hint{color:var(--muted);margin:0 0 12px}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;margin:14px 0}
+    .form-field.full{grid-column:1/-1}
+    .form-field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+    .form-field input,.form-field select,.form-field textarea{
+      width:100%;padding:8px 10px;border:1px solid var(--line);background:#fff;color:#111
+    }
+    .form-field textarea{min-height:64px;resize:vertical}
+    .form-actions{display:flex;justify-content:space-between;gap:8px;margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+    .form-actions .right{display:flex;gap:8px}
+    @media(max-width:700px){.form-grid{grid-template-columns:1fr}}
+
+    @media(max-width:700px){
+      header,main,footer{padding-left:12px;padding-right:12px}
+      .toolbar input{min-width:100%}
+      .detail-grid{grid-template-columns:1fr}
+      h1{font-size:23px}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">Ainsophic · Strategic Event Intelligence</div>
+    <h1>Calendario estratégico — Mendoza → Argentina → Global</h1>
+    <p class="subtitle">
+      Sistema operativo para decidir cuándo ejecutar, aliarse, observar o bloquear una fecha.
+      Cada evento incluye score, contexto y acciones recomendadas. Editable desde el navegador.
+    </p>
+
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="Buscar evento, producto, ciudad…">
+
+      <select id="entity" aria-label="Filtrar por entidad">
+        <option value="all">Todas las entidades</option>
+      </select>
+
+      <select id="type" aria-label="Filtrar por tipo">
+        <option value="all">Todos los tipos</option>
+      </select>
+
+      <button class="filter-btn active" data-filter="all">Todos</button>
+      <button class="filter-btn" data-filter="must">P0</button>
+      <button class="filter-btn" data-filter="pending">Pendientes</button>
+      <button class="filter-btn" data-filter="done">Gestionados</button>
+      <button id="reset">Reset filtros</button>
+    </div>
+
+    <div class="toolbar-actions">
+      <button id="btn-new" class="btn btn-primary">+ Nuevo evento</button>
+      <button id="btn-export" class="btn">Exportar copia (.json)</button>
+      <button id="btn-import" class="btn">Importar copia (.json)</button>
+      <button id="btn-restore" class="btn btn-danger">Restaurar datos originales</button>
+      <input id="import-file" type="file" accept="application/json" hidden>
+    </div>
+
+    <div id="stats" class="stats"></div>
+    <div id="data-status"></div>
+
+    <div class="legend" aria-label="Leyenda">
+      <span>GO · ejecutar</span>
+      <span>PARTNER · aliarse</span>
+      <span>WATCH · monitorizar</span>
+      <span>BLACKOUT · no competir</span>
+      <span>CONDITIONAL · depende de readiness</span>
+    </div>
+  </header>
+
+  <main>
+    <div id="data-error"></div>
+
+    <div class="view-tabs" role="tablist">
+      <button data-view="year">Año</button>
+      <button data-view="month" class="active">Mes</button>
+      <button data-view="day">Día</button>
+      <button data-view="agenda">Agenda</button>
+    </div>
+
+    <div class="cal-nav">
+      <button id="nav-prev" aria-label="Anterior">‹</button>
+      <button id="nav-today">Hoy</button>
+      <button id="nav-next" aria-label="Siguiente">›</button>
+      <h2 id="nav-label"></h2>
+    </div>
+
+    <div id="view-year" class="view-panel">
+      <div id="year-grid" class="year-grid"></div>
+    </div>
+
+    <div id="view-month" class="view-panel active">
+      <div id="month-grid" class="month-grid"></div>
+    </div>
+
+    <div id="view-day" class="view-panel">
+      <div id="day-events" class="day-events"></div>
+    </div>
+
+    <div id="view-agenda" class="view-panel">
+      <div id="agenda-groups" class="months"></div>
+    </div>
+  </main>
+
+  <footer>
+    <strong>Regla:</strong> fechas Ainsophic = planificación estratégica.
+    Eventos externos con fecha TBD deben validarse contra la publicación oficial.
+    Research Labs puede aportar contenido científico, pero no organiza eventos.
+    Los cambios se guardan en este navegador — usá "Exportar copia" para respaldarlos.
+  </footer>
+
+  <div id="panel" class="panel" aria-hidden="true">
+    <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+      <div class="drawer-top">
+        <div class="left">
+          <button id="edit-event" class="close">Editar</button>
+          <button id="delete-event" class="close">Eliminar</button>
+        </div>
+        <button id="close-panel" class="close">Cerrar</button>
+      </div>
+      <div id="detail"></div>
+    </aside>
+  </div>
+
+  <div id="modal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <h2 id="modal-title">Nuevo evento</h2>
+      <p class="modal-hint">Los campos con * son obligatorios.</p>
+      <form id="event-form">
+        <div class="form-grid">
+          <div class="form-field full">
+            <label for="f-title">Título *</label>
+            <input id="f-title" name="title" required>
+          </div>
+
+          <div class="form-field">
+            <label for="f-date">Fecha *</label>
+            <input id="f-date" name="date" type="date" required>
+          </div>
+          <div class="form-field">
+            <label for="f-priority">Prioridad</label>
+            <input id="f-priority" name="priority" list="dl-priority" placeholder="P0, P1…">
+            <datalist id="dl-priority"></datalist>
+          </div>
+
+          <div class="form-field">
+            <label for="f-entity">Entidad</label>
+            <input id="f-entity" name="entity" list="dl-entity">
+            <datalist id="dl-entity"></datalist>
+          </div>
+          <div class="form-field">
+            <label for="f-type">Tipo</label>
+            <input id="f-type" name="type" list="dl-type">
+            <datalist id="dl-type"></datalist>
+          </div>
+
+          <div class="form-field">
+            <label for="f-action">Acción recomendada</label>
+            <input id="f-action" name="action" list="dl-action" placeholder="GO, PARTNER, WATCH…">
+            <datalist id="dl-action"></datalist>
+          </div>
+          <div class="form-field">
+            <label for="f-score">Score (0-100)</label>
+            <input id="f-score" name="score" type="number" min="0" max="100">
+          </div>
+
+          <div class="form-field">
+            <label for="f-city">Ciudad</label>
+            <input id="f-city" name="city">
+          </div>
+          <div class="form-field">
+            <label for="f-product">Producto / tema</label>
+            <input id="f-product" name="product" list="dl-product">
+            <datalist id="dl-product"></datalist>
+          </div>
+
+          <div class="form-field">
+            <label for="f-status">Estado</label>
+            <input id="f-status" name="status" list="dl-status">
+            <datalist id="dl-status"></datalist>
+          </div>
+          <div class="form-field">
+            <label for="f-source">Fuente (URL)</label>
+            <input id="f-source" name="source" type="url" placeholder="https://…">
+          </div>
+
+          <div class="form-field full">
+            <label for="f-summary">Qué es</label>
+            <textarea id="f-summary" name="summary"></textarea>
+          </div>
+          <div class="form-field full">
+            <label for="f-strategy">Por qué importa</label>
+            <textarea id="f-strategy" name="strategy"></textarea>
+          </div>
+          <div class="form-field full">
+            <label for="f-tasks">Qué debemos hacer (una tarea por línea)</label>
+            <textarea id="f-tasks" name="tasks"></textarea>
+          </div>
+
+          <div class="form-field full">
+            <label class="inline-check">
+              <input id="f-done" name="done" type="checkbox">
+              Marcar como gestionado
+            </label>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" id="form-cancel" class="btn">Cancelar</button>
+          <div class="right">
+            <button type="submit" class="btn btn-primary">Guardar evento</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
